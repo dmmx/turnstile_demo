@@ -1,0 +1,285 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'VPC with public and private subnets for Turnstile project'
+
+Parameters:
+  EnvironmentName:
+    Description: Environment name that will be prefixed to resource names
+    Type: String
+    Default: turnstile
+
+Resources:
+  # VPC
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/27
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-vpc
+        - Key: dmmx:owner
+          Value: bdh61@me.com
+        - Key: dmmx:project
+          Value: turnstile
+        - Key: dmmx:create-date
+          Value: '2025-03-30'
+        - Key: dmmx:tr:owner
+          Value: dan.mohrland@thomsonreuters.com
+
+  # Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-igw
+        - Key: dmmx:owner
+          Value: bdh61@me.com
+        - Key: dmmx:project
+          Value: turnstile
+        - Key: dmmx:create-date
+          Value: '2025-03-30'
+        - Key: dmmx:tr:owner
+          Value: dan.mohrland@thomsonreuters.com
+
+  # Attach Internet Gateway to VPC
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Public Subnet
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.0.0/28
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-public-subnet
+        - Key: dmmx:owner
+          Value: bdh61@me.com
+        - Key: dmmx:project
+          Value: turnstile
+        - Key: dmmx:create-date
+          Value: '2025-03-30'
+        - Key: dmmx:tr:owner
+          Value: dan.mohrland@thomsonreuters.com
+
+  # Private Subnet
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.0.16/28
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-private-subnet
+        - Key: dmmx:owner
+          Value: bdh61@me.com
+        - Key: dmmx:project
+          Value: turnstile
+        - Key: dmmx:create-date
+          Value: '2025-03-30'
+        - Key: dmmx:tr:owner
+          Value: dan.mohrland@thomsonreuters.com
+
+  # Elastic IP for NAT Gateway
+  NatGatewayEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: AttachGateway
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-nat-eip
+        - Key: dmmx:owner
+          Value: bdh61@me.com
+        - Key: dmmx:project
+          Value: turnstile
+        - Key: dmmx:create-date
+          Value: '2025-03-30'
+        - Key: dmmx:tr:owner
+          Value: dan.mohrland@thomsonreuters.com
+
+  # NAT Gateway
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-nat
+        - Key: dmmx:owner
+          Value: bdh61@me.com
+        - Key: dmmx:project
+          Value: turnstile
+        - Key: dmmx:create-date
+          Value: '2025-03-30'
+        - Key: dmmx:tr:owner
+          Value: dan.mohrland@thomsonreuters.com
+
+  # Public Route Table
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-public-rt
+        - Key: dmmx:owner
+          Value: bdh61@me.com
+        - Key: dmmx:project
+          Value: turnstile
+        - Key: dmmx:create-date
+          Value: '2025-03-30'
+        - Key: dmmx:tr:owner
+          Value: dan.mohrland@thomsonreuters.com
+
+  # Default route for public subnet
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  # Associate public subnet with public route table
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  # Private Route Table
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-private-rt
+        - Key: dmmx:owner
+          Value: bdh61@me.com
+        - Key: dmmx:project
+          Value: turnstile
+        - Key: dmmx:create-date
+          Value: '2025-03-30'
+        - Key: dmmx:tr:owner
+          Value: dan.mohrland@thomsonreuters.com
+
+  # Default route for private subnet
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  # Associate private subnet with private route table
+  PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet
+      RouteTableId: !Ref PrivateRouteTable
+
+  # Public Security Group
+  PublicSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for public subnet
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-public-sg
+        - Key: dmmx:owner
+          Value: bdh61@me.com
+        - Key: dmmx:project
+          Value: turnstile
+        - Key: dmmx:create-date
+          Value: '2025-03-30'
+        - Key: dmmx:tr:owner
+          Value: dan.mohrland@thomsonreuters.com
+
+  # Private Security Group
+  PrivateSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for private subnet
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !Ref PublicSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref PublicSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref PublicSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-private-sg
+        - Key: dmmx:owner
+          Value: bdh61@me.com
+        - Key: dmmx:project
+          Value: turnstile
+        - Key: dmmx:create-date
+          Value: '2025-03-30'
+        - Key: dmmx:tr:owner
+          Value: dan.mohrland@thomsonreuters.com
+
+Outputs:
+  VpcId:
+    Description: VPC ID
+    Value: !Ref VPC
+    Export:
+      Name: !Sub ${EnvironmentName}-VpcId
+
+  PublicSubnetId:
+    Description: Public Subnet ID
+    Value: !Ref PublicSubnet
+    Export:
+      Name: !Sub ${EnvironmentName}-PublicSubnetId
+
+  PrivateSubnetId:
+    Description: Private Subnet ID
+    Value: !Ref PrivateSubnet
+    Export:
+      Name: !Sub ${EnvironmentName}-PrivateSubnetId
+
+  PublicSecurityGroupId:
+    Description: Public Security Group ID
+    Value: !Ref PublicSecurityGroup
+    Export:
+      Name: !Sub ${EnvironmentName}-PublicSecurityGroupId
+
+  PrivateSecurityGroupId:
+    Description: Private Security Group ID
+    Value: !Ref PrivateSecurityGroup
+    Export:
+      Name: !Sub ${EnvironmentName}-PrivateSecurityGroupId 

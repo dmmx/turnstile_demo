@@ -1,0 +1,19 @@
+Help me create a design specification for an AWS VPC. The VPC should
+have one public subnet and one private subnet. Each subnet should have
+the capacity for 16 IP addresses.
+
+The public subnet should allow ssh, http, and https traffic from the
+public internet.
+
+The private subnet should only allow ssh, http, and https traffic
+from the public subnet.
+
+The technology stack should only include AWS Cloudformation YAML files.
+These files will later be processed by the AWS CLI.
+
+All resources should be tagged with the following tags:
+Key                 Value
+dmmx:owner          bdh61@me.com
+dmmx:project        turnstile
+dmmx:create-date    2025-03-30
+dmmx:tr:owner       dan.mohrland@thomsonreuters.com

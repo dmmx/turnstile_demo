@@ -1,0 +1,4 @@
+Help me create a design document for a web application that demonstrates the features
+of Cloudflare Turnstile. The document should specify that only html and JavaScript should
+be used for the frontend, and python and Flask should be used for the backend. The design
+document should be in markdown format.
