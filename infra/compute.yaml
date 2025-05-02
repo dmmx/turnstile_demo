@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'EC2 instance in public subnet for Turnstile project'
+Description: 'EC2 instance with ALB for Turnstile project'
 
 Parameters:
   EnvironmentName:
@@ -13,6 +13,113 @@ Parameters:
     Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64
 
 Resources:
+  # Application Load Balancer
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${EnvironmentName}-alb
+      Scheme: internet-facing
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: '60'
+      SecurityGroups:
+        - !Ref AlbSecurityGroup
+      Subnets:
+        - !ImportValue 
+          Fn::Sub: ${EnvironmentName}-PublicSubnet1Id
+        - !ImportValue 
+          Fn::Sub: ${EnvironmentName}-PublicSubnet2Id
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-alb
+        - Key: dmmx:owner
+          Value: bdh61@me.com
+        - Key: dmmx:project
+          Value: turnstile
+        - Key: dmmx:create-date
+          Value: '2025-03-30'
+        - Key: dmmx:tr:owner
+          Value: dan.mohrland@thomsonreuters.com
+
+  # ALB Target Group
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${EnvironmentName}-tg
+      Port: 80
+      Protocol: HTTP
+      VpcId: !ImportValue 
+        Fn::Sub: ${EnvironmentName}-VpcId
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-tg
+        - Key: dmmx:owner
+          Value: bdh61@me.com
+        - Key: dmmx:project
+          Value: turnstile
+        - Key: dmmx:create-date
+          Value: '2025-03-30'
+        - Key: dmmx:tr:owner
+          Value: dan.mohrland@thomsonreuters.com
+
+  # ALB HTTP Listener
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: redirect
+          RedirectConfig:
+            Protocol: HTTPS
+            Port: '443'
+            Host: '#{host}'
+            Path: '/#{path}'
+            Query: '#{query}'
+            StatusCode: HTTP_301
+
+  # ALB HTTPS Listener
+  HttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: arn:aws:acm:us-east-2:473762342045:certificate/b54a8c33-6d75-440a-a287-5f5db4d2043a
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  # ALB Security Group
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ALB
+      VpcId: !ImportValue 
+        Fn::Sub: ${EnvironmentName}-VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-alb-sg
+        - Key: dmmx:owner
+          Value: bdh61@me.com
+        - Key: dmmx:project
+          Value: turnstile
+        - Key: dmmx:create-date
+          Value: '2025-03-30'
+        - Key: dmmx:tr:owner
+          Value: dan.mohrland@thomsonreuters.com
+
   # EC2 Instance
   PublicInstance:
     Type: AWS::EC2::Instance
@@ -21,10 +128,9 @@ Resources:
       ImageId: !Ref LatestAmiId
       KeyName: turnstile.pem
       SubnetId: !ImportValue 
-        Fn::Sub: ${EnvironmentName}-PublicSubnetId
+        Fn::Sub: ${EnvironmentName}-PublicSubnet1Id
       SecurityGroupIds: 
-        - !ImportValue 
-          Fn::Sub: ${EnvironmentName}-PublicSecurityGroupId
+        - !Ref Ec2SecurityGroup
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
@@ -44,7 +150,41 @@ Resources:
         - Key: dmmx:tr:owner
           Value: dan.mohrland@thomsonreuters.com
 
-  
+  # EC2 Security Group
+  Ec2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for EC2 instance
+      VpcId: !ImportValue 
+        Fn::Sub: ${EnvironmentName}-VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref AlbSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-ec2-sg
+        - Key: dmmx:owner
+          Value: bdh61@me.com
+        - Key: dmmx:project
+          Value: turnstile
+        - Key: dmmx:create-date
+          Value: '2025-03-30'
+        - Key: dmmx:tr:owner
+          Value: dan.mohrland@thomsonreuters.com
+
+  # Target Group Attachment
+  TargetGroupAttachment:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroupAttachment
+    Properties:
+      TargetGroupArn: !Ref TargetGroup
+      TargetId: !Ref PublicInstance
+      Port: 80
 
 Outputs:
   PublicInstanceId:
@@ -53,8 +193,14 @@ Outputs:
     Export:
       Name: !Sub ${EnvironmentName}-PublicInstanceId
 
-  PublicInstancePublicIP:
-    Description: Public IP address of the EC2 instance
-    Value: !GetAtt PublicInstance.PublicIp
+  AlbDnsName:
+    Description: DNS name of the Application Load Balancer
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
     Export:
-      Name: !Sub ${EnvironmentName}-PublicInstancePublicIP 
+      Name: !Sub ${EnvironmentName}-AlbDnsName
+
+  TargetGroupArn:
+    Description: ARN of the Target Group
+    Value: !Ref TargetGroup
+    Export:
+      Name: !Sub ${EnvironmentName}-TargetGroupArn
