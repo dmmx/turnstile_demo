@@ -1,0 +1,10 @@
+Generate a bash shell script to process compute.yaml.
+
+The shell script should do the following:
+1. Prompt the the user for parameters.
+2. Execute the aws cli command to process compute.yaml and deploy
+   the resource defined within.
+3. Provide status updates while it waits for the resources to be created.
+4. Provide output that indicates if the resources were created
+   successfully or not.
+5. If there was an error, provide information on the error.

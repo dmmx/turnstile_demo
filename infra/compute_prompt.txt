@@ -1,0 +1,8 @@
+Help me create a design document for an aws ec2 instance to launch into
+the public subnet of the turnstile vpc.
+
+The ec2 instance should meet these requirements:
+- accessible over ssh
+- use the warren.pem file in the infra directory
+- use the t2.micro instance type
+- use the Amazon Linux 2023 AMI

@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'EC2 instance in public subnet for Turnstile project'
+
+Parameters:
+  EnvironmentName:
+    Description: Environment name that will be prefixed to resource names
+    Type: String
+    Default: turnstile
+
+  # Parameter to get latest Amazon Linux 2023 AMI
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64
+
+Resources:
+  # EC2 Instance
+  PublicInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: !Ref LatestAmiId
+      KeyName: turnstile.pem
+      SubnetId: !ImportValue 
+        Fn::Sub: ${EnvironmentName}-PublicSubnetId
+      SecurityGroupIds: 
+        - !ImportValue 
+          Fn::Sub: ${EnvironmentName}-PublicSecurityGroupId
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 10
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-public-instance
+        - Key: dmmx:owner
+          Value: bdh61@me.com
+        - Key: dmmx:project
+          Value: turnstile
+        - Key: dmmx:create-date
+          Value: '2025-03-30'
+        - Key: dmmx:tr:owner
+          Value: dan.mohrland@thomsonreuters.com
+
+  
+
+Outputs:
+  PublicInstanceId:
+    Description: Public EC2 Instance ID
+    Value: !Ref PublicInstance
+    Export:
+      Name: !Sub ${EnvironmentName}-PublicInstanceId
+
+  PublicInstancePublicIP:
+    Description: Public IP address of the EC2 instance
+    Value: !GetAtt PublicInstance.PublicIp
+    Export:
+      Name: !Sub ${EnvironmentName}-PublicInstancePublicIP 

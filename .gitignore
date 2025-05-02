@@ -1,3 +1,11 @@
+# Ignore macOS system files
+.DS_Store
+**/.DS_Store
+
 # VS Code directory
 .vscode/
+
+# Ignore .pem key files (private keys and certificates)
+*.pem
+**/*.pem
 

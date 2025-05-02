@@ -12,7 +12,7 @@ Resources:
   VPC:
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: 10.0.0.0/27
+      CidrBlock: 10.0.0.0/24
       EnableDnsHostnames: true
       EnableDnsSupport: true
       Tags:
@@ -50,17 +50,17 @@ Resources:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref InternetGateway
 
-  # Public Subnet
-  PublicSubnet:
+  # Public Subnet 1
+  PublicSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      CidrBlock: 10.0.0.0/28
+      CidrBlock: 10.0.0.0/26
       AvailabilityZone: !Select [0, !GetAZs '']
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: !Sub ${EnvironmentName}-public-subnet
+          Value: !Sub ${EnvironmentName}-public-subnet-1
         - Key: dmmx:owner
           Value: bdh61@me.com
         - Key: dmmx:project
@@ -70,17 +70,37 @@ Resources:
         - Key: dmmx:tr:owner
           Value: dan.mohrland@thomsonreuters.com
 
-  # Private Subnet
-  PrivateSubnet:
+  # Public Subnet 2
+  PublicSubnet2:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      CidrBlock: 10.0.0.16/28
+      CidrBlock: 10.0.0.64/26
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-public-subnet-2
+        - Key: dmmx:owner
+          Value: bdh61@me.com
+        - Key: dmmx:project
+          Value: turnstile
+        - Key: dmmx:create-date
+          Value: '2025-03-30'
+        - Key: dmmx:tr:owner
+          Value: dan.mohrland@thomsonreuters.com
+
+  # Private Subnet 1
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.0.128/26
       AvailabilityZone: !Select [0, !GetAZs '']
       MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
-          Value: !Sub ${EnvironmentName}-private-subnet
+          Value: !Sub ${EnvironmentName}-private-subnet-1
         - Key: dmmx:owner
           Value: bdh61@me.com
         - Key: dmmx:project
@@ -90,7 +110,27 @@ Resources:
         - Key: dmmx:tr:owner
           Value: dan.mohrland@thomsonreuters.com
 
-  # Elastic IP for NAT Gateway
+  # Private Subnet 2
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.0.192/26
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-private-subnet-2
+        - Key: dmmx:owner
+          Value: bdh61@me.com
+        - Key: dmmx:project
+          Value: turnstile
+        - Key: dmmx:create-date
+          Value: '2025-03-30'
+        - Key: dmmx:tr:owner
+          Value: dan.mohrland@thomsonreuters.com
+
+  # Elastic IP for NAT Gateway 1
   NatGatewayEIP:
     Type: AWS::EC2::EIP
     DependsOn: AttachGateway
@@ -108,12 +148,30 @@ Resources:
         - Key: dmmx:tr:owner
           Value: dan.mohrland@thomsonreuters.com
 
-  # NAT Gateway
+  # Elastic IP for NAT Gateway 2
+  NatGatewayEIP2:
+    Type: AWS::EC2::EIP
+    DependsOn: AttachGateway
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-nat-eip-2
+        - Key: dmmx:owner
+          Value: bdh61@me.com
+        - Key: dmmx:project
+          Value: turnstile
+        - Key: dmmx:create-date
+          Value: '2025-03-30'
+        - Key: dmmx:tr:owner
+          Value: dan.mohrland@thomsonreuters.com
+
+  # NAT Gateway 1
   NatGateway:
     Type: AWS::EC2::NatGateway
     Properties:
       AllocationId: !GetAtt NatGatewayEIP.AllocationId
-      SubnetId: !Ref PublicSubnet
+      SubnetId: !Ref PublicSubnet1
       Tags:
         - Key: Name
           Value: !Sub ${EnvironmentName}-nat
@@ -152,14 +210,39 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
 
-  # Associate public subnet with public route table
-  PublicSubnetRouteTableAssociation:
+  # NAT Gateway 2
+  NatGateway2:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGatewayEIP2.AllocationId
+      SubnetId: !Ref PublicSubnet2
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-nat-2
+        - Key: dmmx:owner
+          Value: bdh61@me.com
+        - Key: dmmx:project
+          Value: turnstile
+        - Key: dmmx:create-date
+          Value: '2025-03-30'
+        - Key: dmmx:tr:owner
+          Value: dan.mohrland@thomsonreuters.com
+
+  # Associate public subnet 1 with public route table
+  PublicSubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref PublicSubnet
+      SubnetId: !Ref PublicSubnet1
       RouteTableId: !Ref PublicRouteTable
 
-  # Private Route Table
+  # Associate public subnet 2 with public route table
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # Private Route Table 1
   PrivateRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -176,7 +259,24 @@ Resources:
         - Key: dmmx:tr:owner
           Value: dan.mohrland@thomsonreuters.com
 
-  # Default route for private subnet
+  # Private Route Table 2
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-private-rt-2
+        - Key: dmmx:owner
+          Value: bdh61@me.com
+        - Key: dmmx:project
+          Value: turnstile
+        - Key: dmmx:create-date
+          Value: '2025-03-30'
+        - Key: dmmx:tr:owner
+          Value: dan.mohrland@thomsonreuters.com
+
+  # Default route for private subnet 1
   PrivateRoute:
     Type: AWS::EC2::Route
     Properties:
@@ -184,11 +284,19 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NatGateway
 
-  # Associate private subnet with private route table
-  PrivateSubnetRouteTableAssociation:
+  # Default route for private subnet 2
+  PrivateRoute2:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway2
+
+  # Associate private subnet 1 with private route table 1
+  PrivateSubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref PrivateSubnet
+      SubnetId: !Ref PrivateSubnet1
       RouteTableId: !Ref PrivateRouteTable
 
   # Public Security Group
@@ -253,6 +361,13 @@ Resources:
         - Key: dmmx:tr:owner
           Value: dan.mohrland@thomsonreuters.com
 
+  # Associate private subnet 2 with private route table 2
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable2
+
 Outputs:
   VpcId:
     Description: VPC ID
@@ -260,17 +375,29 @@ Outputs:
     Export:
       Name: !Sub ${EnvironmentName}-VpcId
 
-  PublicSubnetId:
-    Description: Public Subnet ID
-    Value: !Ref PublicSubnet
+  PublicSubnet1Id:
+    Description: Public Subnet 1 ID
+    Value: !Ref PublicSubnet1
     Export:
-      Name: !Sub ${EnvironmentName}-PublicSubnetId
+      Name: !Sub ${EnvironmentName}-PublicSubnet1Id
 
-  PrivateSubnetId:
-    Description: Private Subnet ID
-    Value: !Ref PrivateSubnet
+  PublicSubnet2Id:
+    Description: Public Subnet 2 ID
+    Value: !Ref PublicSubnet2
     Export:
-      Name: !Sub ${EnvironmentName}-PrivateSubnetId
+      Name: !Sub ${EnvironmentName}-PublicSubnet2Id
+
+  PrivateSubnet1Id:
+    Description: Private Subnet 1 ID
+    Value: !Ref PrivateSubnet1
+    Export:
+      Name: !Sub ${EnvironmentName}-PrivateSubnet1Id
+
+  PrivateSubnet2Id:
+    Description: Private Subnet 2 ID
+    Value: !Ref PrivateSubnet2
+    Export:
+      Name: !Sub ${EnvironmentName}-PrivateSubnet2Id
 
   PublicSecurityGroupId:
     Description: Public Security Group ID
@@ -282,4 +409,4 @@ Outputs:
     Description: Private Security Group ID
     Value: !Ref PrivateSecurityGroup
     Export:
-      Name: !Sub ${EnvironmentName}-PrivateSecurityGroupId 
+      Name: !Sub ${EnvironmentName}-PrivateSecurityGroupId
