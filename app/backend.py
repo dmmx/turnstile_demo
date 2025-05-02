@@ -29,4 +29,4 @@ def verify():
 
 if __name__ == "__main__":
     # app.run(debug=True, ssl_context='adhoc')
-    app.run(debug=True)
+    app.run(debug=True, host='ec2-3-145-156-203.us-east-2.compute.amazonaws.com')
