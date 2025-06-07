@@ -50,6 +50,9 @@ Resources:
       Protocol: HTTP
       VpcId: !ImportValue 
         Fn::Sub: ${EnvironmentName}-VpcId
+      Targets:
+        - Id: !Ref PublicInstance
+          Port: 80
       Tags:
         - Key: Name
           Value: !Sub ${EnvironmentName}-tg
@@ -178,13 +181,6 @@ Resources:
         - Key: dmmx:tr:owner
           Value: dan.mohrland@thomsonreuters.com
 
-  # Target Group Attachment
-  TargetGroupAttachment:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroupAttachment
-    Properties:
-      TargetGroupArn: !Ref TargetGroup
-      TargetId: !Ref PublicInstance
-      Port: 80
 
 Outputs:
   PublicInstanceId:

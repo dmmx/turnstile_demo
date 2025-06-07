@@ -10,6 +10,10 @@ CLOUDFLARE_SECRET_KEY = "0x4AAAAAABEwqNSkvGCdbAMt4aYfPpbiuX0"
 def home():
     return render_template("frontend.html")
 
+@app.route("/status")
+def healthcheck():
+    return "Healthy"
+
 @app.route("/verify", methods=["POST"])
 def verify():
     token = request.form.get("cf-turnstile-response")
@@ -30,3 +34,5 @@ def verify():
 if __name__ == "__main__":
     # app.run(debug=True, ssl_context='adhoc')
     app.run(debug=True, host='ec2-3-145-156-203.us-east-2.compute.amazonaws.com')
+    # app.run(debug=True, host='turnstile-demo.dynamicmotion.click')
+    # app.run(debug=True)
